@@ -1,8 +1,218 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<title>Cartoon Walk & Jump Game (Leg Fix + Position Fix)</title>
+<style>
+  body {
+    background: #d9f0ff;
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  canvas {
+    background: #ffffff;
+    border: 2px solid #222;
+  }
+</style>
 </head>
 <body>
-Czesc, tu Karmelove!
+  <h2>Czesc tu karmelove</h2>
+
+<canvas id="game" width="700" height="300"></canvas>
+
+<script>
+// -------------------------------------------------------------
+// RUN + MANUAL JUMP + FACIAL EXPRESSIONS + FIXED LEGS + POSITION
+// -------------------------------------------------------------
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let t = 0;
+let yVel = 0;
+let y = 0;
+const gravity = 0.7;
+let isJumping = false;
+
+let obstacles = [];
+const speed = 4;
+
+function spawnObstacle() {
+  obstacles.push({ x: canvas.width, y: 220, w: 25, h: 40 });
+}
+setInterval(spawnObstacle, 1800);
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") jump();
+});
+
+function jump() {
+  if (!isJumping) {
+    yVel = -12;
+    isJumping = true;
+  }
+}
+
+function drawPerson(step, offsetY) {
+  ctx.save();
+  const x = 150;
+
+  // Feet sit exactly on the ground line (y=220)
+  const baseY = 140 + offsetY;   // ★ Corrected height
+
+  ctx.translate(x, baseY);
+  ctx.lineCap = "round";
+
+  const shirt = "#3a6ee8";
+  const pants = "#2b2b2b";
+  const skin = "#f2c59f";
+
+  // BODY
+  ctx.fillStyle = shirt;
+  ctx.beginPath();
+  ctx.roundRect(-22, -50, 44, 70, 10);
+  ctx.fill();
+
+  // Neck
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(0, -50);
+  ctx.lineTo(0, -65);
+  ctx.stroke();
+
+  // HEAD
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(0, -95, 25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // EXPRESSIONS
+  ctx.fillStyle = "#000";
+  if (!isJumping) {
+    ctx.beginPath();
+    ctx.arc(-8, -100, 3, 0, Math.PI * 2);
+    ctx.arc(8, -100, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, -88, 10, 0, Math.PI);
+    ctx.stroke();
+  } else {
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-14, -108);
+    ctx.lineTo(-4, -102);
+    ctx.moveTo(14, -108);
+    ctx.lineTo(4, -102);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(-7, -99, 2, 0, Math.PI * 2);
+    ctx.arc(7, -99, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-8, -87);
+    ctx.lineTo(8, -87);
+    ctx.stroke();
+  }
+
+  // ARMS
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 10;
+  let armAngleL = Math.sin(step) * 25;
+  let armAngleR = Math.sin(step + Math.PI) * 25;
+  if (isJumping) { armAngleL = -40; armAngleR = 40; }
+  limb(-20, -28, armAngleL - 90, 45);
+  limb(20, -28, armAngleR - 90, 45);
+
+  // LEGS (fixed vertical orientation)
+  ctx.strokeStyle = pants;
+  ctx.lineWidth = 14;
+
+  let legSwingL = Math.sin(step + Math.PI) * 25;
+  let legSwingR = Math.sin(step) * 25;
+  if (isJumping) { legSwingL = -5; legSwingR = -10; }
+
+  const baseAngle = 90;
+  const angleL = baseAngle + legSwingL;
+  const angleR = baseAngle + legSwingR;
+
+  limb(-10, 20, angleL, 55);
+  limb(10, 20, angleR, 55);
+
+  ctx.fillStyle = "#333";
+  foot(-10, 20, angleL, 55);
+  foot(10, 20, angleR, 55);
+
+  ctx.restore();
+}
+
+function limb(x1, y1, angleDeg, length) {
+  const rad = angleDeg * Math.PI / 180;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(
+    x1 + Math.cos(rad) * length,
+    y1 + Math.sin(rad) * length
+  );
+  ctx.stroke();
+}
+
+function foot(x1, y1, angleDeg, length) {
+  const rad = angleDeg * Math.PI / 180;
+  const x2 = x1 + Math.cos(rad) * length;
+  const y2 = y1 + Math.sin(rad) * length;
+
+  ctx.beginPath();
+  ctx.ellipse(x2, y2, 12, 5, rad, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// -------------------------------------------------------------
+// GAME LOOP
+// -------------------------------------------------------------
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  t += 0.08;
+
+  // Jump physics
+  if (isJumping) {
+    y += yVel;
+    yVel += gravity;
+    if (y > 0) {
+      y = 0;
+      isJumping = false;
+    }
+  }
+
+  // Obstacles
+  obstacles.forEach(o => o.x -= speed);
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  ctx.fillStyle = "#d14";
+  obstacles.forEach(o => {
+    ctx.fillRect(o.x, o.y - o.h, o.w, o.h);
+  });
+
+  // Ground
+  ctx.strokeStyle = "#666";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, 220);
+  ctx.lineTo(700, 220);
+  ctx.stroke();
+
+  drawPerson(t, y);
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
 </body>
 </html>
